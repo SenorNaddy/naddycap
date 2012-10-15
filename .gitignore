@@ -3,7 +3,9 @@
 Makefile.in
 
 # http://www.gnu.org/software/autoconf
-
+*.pcap
+*.erf
+/configure.in
 /autom4te.cache
 /aclocal.m4
 /compile
@@ -11,6 +13,8 @@ Makefile.in
 /depcomp
 /install-sh
 /missing
+
+*.log
 
 # Compiled Object files
 *.slo
