@@ -5,8 +5,10 @@
 extern "C" {
 #endif
 
+enum packetret { DROPPED, ACCEPTED, ERROR, OUTPUTTED };
+
 void init(char *args);
-void parse_packet(libtrace_packet_t *pkt);
+enum packetret parse_packet(libtrace_packet_t *pkt);
 void cleanup();
 
 #ifdef __cplusplus

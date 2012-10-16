@@ -1,7 +1,13 @@
 all: naddycap output_erf output_pcap
 
-naddycap: main.cpp
-	g++ -rdynamic -o naddycap main.cpp -ldl -ltrace -largtable2
+naddycap: main.o argparser.o
+	g++ -rdynamic -o naddycap main.o argparser.o -ldl -ltrace -largtable2
+
+argparser.o: argparser.c args.h
+	g++ -c -Wall -g argparser.c
+
+main.o:	main.cpp naddycap.h args.h
+	g++ -c -Wall -g main.cpp
 
 output_erf: output_erf.c
 	gcc -Wall -fPIC -c output_erf.c

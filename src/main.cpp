@@ -5,6 +5,7 @@
 #include "plugin.h"
 #include "structs.h"
 #include "args.h"
+#include "naddycap.h"
 
 char trace_file[25];
 module m;
@@ -14,32 +15,30 @@ arguments args;
 
 int main(int argc, char *argv[])
 {
+	signal(SIGABRT, &naddycap_exit);
+	signal(SIGKILL, &naddycap_exit);
+	signal(SIGINT, &naddycap_exit);
+	signal(SIGTERM, &naddycap_exit);
+
 	char *error;
-	args.help = arg_lit0("h","help",	"display this help message");
-	args.version = arg_lit0(NULL,"version",	"version information");
-	args.modules = arg_strn(NULL,"module",	"<lib file>", 0, 15, "packet processing modules");
-	args.interface = arg_str0("i","interface", "<interface>", "interface to capture on. any requires pcap output module");
-	args.module_path = arg_str0(NULL,"module-path", "<path>","path to the modules directory");
-	args.num_packets = arg_int0("n",NULL,"<NUM>","number of packets to capture. 0 is unlimited");
-	args.end = arg_end(20);
+
+	initialize_clargs(&args);
 	void *argtable[] = {args.help, args.version, args.modules, args.interface, args.module_path, args.num_packets, args.end};
+
 	int nerrors;
 	if(arg_nullcheck(argtable) != 0)
 	{
 		printf("%s: insufficient memory\n", argv[0]);
-		return -1;
+		naddycap_exit(1);
 	}
 
-	args.interface->sval[0] = "any";
-	args.module_path->sval[0] = "./";
-	args.num_packets->ival[0] = 0;
 	nerrors = arg_parse(argc, argv, argtable);
 
 	if ( (args.help)->count > 0)
 	{
 		arg_print_syntaxv(stdout, argtable, "\n");
 		arg_print_glossary(stdout, argtable, "	%-25s %s\n");
-		return -1;
+		naddycap_exit(2);
 	}
 
 	sprintf(trace_file, "pcapint:%s",args.interface->sval[0]);
@@ -99,11 +98,34 @@ int main(int argc, char *argv[])
 
 	while (trace_read_packet(trace, packet) > 0 && (args.num_packets->count <= 0 || read < args.num_packets->ival[0]))
 	{
-		(*(m.parse_packet))(packet);
+		enum packetret p = (*(m.parse_packet))(packet);
 		read++;
 	}
-	(*(m.cleanup))();
-	trace_destroy(trace);
-	trace_destroy_packet(packet);
+	naddycap_exit(0);
 }
 
+void naddycap_exit(int sig)
+{
+	naddycap_cleanup(packet, trace, m);
+	exit(0);
+}
+
+void naddycap_cleanup(libtrace_packet_t *packet, libtrace_t *trace, module m)
+{
+	if(trace)
+		trace_destroy(trace);
+	if(packet)
+		trace_destroy_packet(packet);
+	free(args.help);
+	free(args.version);
+	free(args.modules);
+	free(args.interface);
+	free(args.module_path);
+	free(args.num_packets);
+	free(args.end);
+	if(m.lib_handle)
+	{
+		(*(m.cleanup))();
+		dlclose(m.lib_handle);
+	}
+}

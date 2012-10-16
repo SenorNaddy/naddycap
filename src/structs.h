@@ -1,5 +1,5 @@
 typedef void (*InitFunc)(char *);
-typedef void (*ParseFunc)(libtrace_packet_t *);
+typedef enum packetret (*ParseFunc)(libtrace_packet_t *);
 typedef void (*CleanupFunc)();
 
 typedef struct module {
