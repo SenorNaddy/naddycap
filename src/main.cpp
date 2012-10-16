@@ -13,6 +13,8 @@ libtrace_t *trace = NULL;
 libtrace_packet_t *packet;
 arguments args;
 
+process_path *path_head, *path_curr;
+
 int main(int argc, char *argv[])
 {
 	signal(SIGABRT, &naddycap_exit);
@@ -46,17 +48,19 @@ int main(int argc, char *argv[])
 	int i;
 	for(i = 0; i < args.modules->count; i++)
 	{
+		process_path *p = (process_path *)malloc(sizeof(process_path));
+		p->m = (module *)malloc(sizeof(module));
 		printf("Loading %s\n", args.modules->sval[i]);
 		char module_path_name[256];
 		sprintf(module_path_name, "%s%s", args.module_path->sval[0], args.modules->sval[i]);
-		m.lib_handle = dlopen(module_path_name, RTLD_LAZY);
-		if(!m.lib_handle)
+		p->m->lib_handle = dlopen(module_path_name, RTLD_LAZY);
+		if(!p->m->lib_handle)
 		{
 			fprintf(stderr, "%s\n", dlerror());
 			return -1;
 		}
 
-		m.init = (InitFunc)dlsym(m.lib_handle, "init");
+		p->m->init = (InitFunc)dlsym(p->m->lib_handle, "init");
 
 		if ((error = dlerror()) != NULL)
 		{
@@ -64,21 +68,30 @@ int main(int argc, char *argv[])
 			return -1;
 		}
 
-		m.parse_packet = (ParseFunc)dlsym(m.lib_handle, "parse_packet");
+		p->m->parse_packet = (ParseFunc)dlsym(p->m->lib_handle, "parse_packet");
         	if ((error = dlerror()) != NULL)
         	{
                 	fprintf(stderr, "%s\n", error);
                 	return -1;
         	}
-		m.cleanup = (CleanupFunc)dlsym(m.lib_handle,"cleanup");
+		p->m->cleanup = (CleanupFunc)dlsym(p->m->lib_handle,"cleanup");
         	if ((error = dlerror()) != NULL)
         	{
                 	fprintf(stderr, "%s\n", error);
                 	return -1;
         	}
+		(*(p->m->init))(argv[argc-1]);
+		p->next = NULL;
+		if(i == 0)
+		{
+			path_head = path_curr =  p;
+		}
+		if(i > 0)
+		{
+			path_curr->next = p;
+		}
+		path_curr = p;
 	}
-	(*(m.init))(argv[argc-1]);
-
 	packet = trace_create_packet();
 
 	trace = trace_create(trace_file);
@@ -98,7 +111,13 @@ int main(int argc, char *argv[])
 
 	while (trace_read_packet(trace, packet) > 0 && (args.num_packets->count <= 0 || read < args.num_packets->ival[0]))
 	{
-		enum packetret p = (*(m.parse_packet))(packet);
+		path_curr = path_head;
+		while(path_curr != NULL)
+		{
+			enum packetret p = (*(path_curr->m->parse_packet))(packet);
+			if(p == DROPPED) break;
+			path_curr = path_curr->next;
+		}
 		read++;
 	}
 	naddycap_exit(0);
@@ -123,9 +142,18 @@ void naddycap_cleanup(libtrace_packet_t *packet, libtrace_t *trace, module m)
 	free(args.module_path);
 	free(args.num_packets);
 	free(args.end);
-	if(m.lib_handle)
+	path_curr = path_head;
+	process_path *p2free;
+	while(path_curr != NULL)
 	{
-		(*(m.cleanup))();
-		dlclose(m.lib_handle);
+		if(path_curr->m->lib_handle)
+		{
+			(*(path_curr->m->cleanup))();
+			dlclose(path_curr->m->lib_handle);
+		}
+		free(path_curr->m);
+		p2free = path_curr;
+		path_curr = path_curr->next;
+		free(p2free);
 	}
 }
