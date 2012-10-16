@@ -1,22 +1,19 @@
-#include <stdio.h>
-#include <dlfcn.h>
-#include <string.h>
-#include "libtrace.h"
-#include "plugin.h"
-#include "structs.h"
-#include "args.h"
 #include "naddycap.h"
 
 char trace_file[25];
 module m;
 libtrace_t *trace = NULL;
-libtrace_packet_t *packet;
+//libtrace_packet_t *packet;
 arguments args;
 
 process_path *path_head, *path_curr;
 
+wand_event_handler_t *ev_hdl;
+mon_env_t env;
+
 int main(int argc, char *argv[])
 {
+	ev_hdl = NULL;
 	signal(SIGABRT, &naddycap_exit);
 	signal(SIGKILL, &naddycap_exit);
 	signal(SIGINT, &naddycap_exit);
@@ -92,7 +89,21 @@ int main(int argc, char *argv[])
 		}
 		path_curr = p;
 	}
-	packet = trace_create_packet();
+	env.packet = NULL;
+	if(wand_event_init() == -1) {
+		naddycap_exit(-1);
+	}
+
+	ev_hdl = wand_create_event_handler();
+	if(ev_hdl == NULL)
+	{
+		naddycap_exit(-1);
+	}
+
+	env.wand_ev_hdl = ev_hdl;
+
+
+	//packet = trace_create_packet();
 
 	trace = trace_create(trace_file);
 
@@ -102,30 +113,26 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	if (trace_start(trace) == -1)
+	if (trace_start(trace) == 0)
 	{
-		trace_perror(trace,"starting trace");
-		return 1;
+		env.trace = trace;
+		ev_hdl->running = true;
+		mon_event(&env);
+		wand_event_run(ev_hdl);
 	}
-	int read = 0;
+	/*int read = 0;
 
 	while (trace_read_packet(trace, packet) > 0 && (args.num_packets->count <= 0 || read < args.num_packets->ival[0]))
 	{
-		path_curr = path_head;
-		while(path_curr != NULL)
-		{
-			enum packetret p = (*(path_curr->m->parse_packet))(packet);
-			if(p == DROPPED) break;
-			path_curr = path_curr->next;
-		}
+		execute_pipeline(packet);
 		read++;
-	}
+	}*/
 	naddycap_exit(0);
 }
 
 void naddycap_exit(int sig)
 {
-	naddycap_cleanup(packet, trace, m);
+	naddycap_cleanup(env.packet, trace, m);
 	exit(0);
 }
 
@@ -135,6 +142,8 @@ void naddycap_cleanup(libtrace_packet_t *packet, libtrace_t *trace, module m)
 		trace_destroy(trace);
 	if(packet)
 		trace_destroy_packet(packet);
+	if(env.wand_ev_hdl)
+		wand_destroy_event_handler(env.wand_ev_hdl);
 	free(args.help);
 	free(args.version);
 	free(args.modules);

@@ -1,4 +1,5 @@
-#include "args.h"
+#include "naddycap.h"
+
 void initialize_clargs(arguments *args)
 {
 	args->help = arg_lit0("h","help",	"display this help message");

@@ -17,6 +17,7 @@ typedef struct arguments {
 	struct arg_end *end;
 } arguments;
 
+extern arguments args;
 void initialize_clargs(arguments *args);
 
 #endif
