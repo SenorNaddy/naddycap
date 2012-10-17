@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <dlfcn.h>
 #include <string.h>
+#include "argtable2.h"
 #include "libtrace.h"
 #include "libwandevent.h"
 #include "plugin.h"

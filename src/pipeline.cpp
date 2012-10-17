@@ -1,8 +1,8 @@
-#include "naddycap.h"
+#include "includes/naddycap.h"
 
 int execute_pipeline(libtrace_packet_t *packet)
 {
-	if(args.num_packets->count <= 0 || args.num_packets->ival[0] > 0)
+	if(args.num_packets->count == 0 || args.num_packets->ival[0] > 0)
 	{
 		path_curr = path_head;
 		enum packetret p;

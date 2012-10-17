@@ -1,4 +1,4 @@
-#include "naddycap.h"
+#include "includes/naddycap.h"
 
 void initialize_clargs(arguments *args)
 {
@@ -7,7 +7,8 @@ void initialize_clargs(arguments *args)
 	args->modules = arg_strn(NULL,"module",	"<lib file>", 0, 15, "packet processing modules");
 	args->interface = arg_str0("i","interface", "<interface>", "interface to capture on. any requires pcap output module");
 	args->module_path = arg_str0(NULL,"module-path", "<path>","path to the modules directory");
-	args->num_packets = arg_int0("n",NULL,"<NUM>","number of packets to capture. 0 is unlimited");
+	args->num_packets = arg_int0("n",NULL,"<NUM>","number of packets to capture. omit argument for unlimited");
+	args->output_file = arg_file1(NULL,NULL,NULL, "output file name");
 	args->end = arg_end(20); 
 
 	args->interface->sval[0] = "any";

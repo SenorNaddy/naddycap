@@ -1,6 +1,6 @@
 #include "libtrace.h"
 #include <stdio.h>
-#include "plugin.h"
+#include "includes/plugin.h"
 
 libtrace_filter_t *filter;
 

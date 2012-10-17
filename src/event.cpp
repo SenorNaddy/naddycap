@@ -1,4 +1,4 @@
-#include "naddycap.h"
+#include "includes/naddycap.h"
 
 void mon_event(mon_env_t *env_tmp)
 {
@@ -32,7 +32,7 @@ void timer_event(struct wand_timer_t *timer)
 int process_mon_event(mon_env_t *env_tmp, libtrace_eventobj_t event)
 {
 	wand_event_handler_t *ev_hdl_tmp = env_tmp->wand_ev_hdl;
-
+	int micros;
 	switch(event.type)
 	{
 		case TRACE_EVENT_IOWAIT:
@@ -43,7 +43,6 @@ int process_mon_event(mon_env_t *env_tmp, libtrace_eventobj_t event)
 			wand_add_event(ev_hdl_tmp, &env_tmp->fd_cb);
 			return 0;
 		case TRACE_EVENT_SLEEP:
-			int micros;
 			micros = (int)((event.seconds - (int)event.seconds)*1000000.0);
 			env_tmp->timer.expire = wand_calc_expire(ev_hdl_tmp, (int)event.seconds, micros);
 			env_tmp->timer.callback = timer_event;

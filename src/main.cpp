@@ -1,4 +1,4 @@
-#include "naddycap.h"
+#include "includes/naddycap.h"
 
 char trace_file[25];
 module m;
@@ -22,7 +22,7 @@ int main(int argc, char *argv[])
 	char *error;
 
 	initialize_clargs(&args);
-	void *argtable[] = {args.help, args.version, args.modules, args.interface, args.module_path, args.num_packets, args.end};
+	void *argtable[] = {args.help, args.version, args.modules, args.interface, args.module_path, args.num_packets, args.output_file, args.end};
 
 	int nerrors;
 	if(arg_nullcheck(argtable) != 0)
@@ -40,6 +40,15 @@ int main(int argc, char *argv[])
 		naddycap_exit(2);
 	}
 
+	if( nerrors > 0)
+	{
+		arg_print_errors(stdout, args.end, argv[0]);
+		fprintf(stdout, "\n");
+		arg_print_syntaxv(stdout, argtable, "\n");
+		arg_print_glossary(stdout, argtable, "	%-25s %s\n");
+		naddycap_exit(-1);
+	}
+
 	sprintf(trace_file, "pcapint:%s",args.interface->sval[0]);
 
 	int i;
@@ -54,7 +63,7 @@ int main(int argc, char *argv[])
 		if(!p->m->lib_handle)
 		{
 			fprintf(stderr, "%s\n", dlerror());
-			return -1;
+			naddycap_exit(-1);
 		}
 
 		p->m->init = (InitFunc)dlsym(p->m->lib_handle, "init");
@@ -62,20 +71,20 @@ int main(int argc, char *argv[])
 		if ((error = dlerror()) != NULL)
 		{
 			fprintf(stderr, "%s\n", error);
-			return -1;
+			naddycap_exit(-1);
 		}
 
 		p->m->parse_packet = (ParseFunc)dlsym(p->m->lib_handle, "parse_packet");
         	if ((error = dlerror()) != NULL)
         	{
                 	fprintf(stderr, "%s\n", error);
-                	return -1;
+                	naddycap_exit(-1);
         	}
 		p->m->cleanup = (CleanupFunc)dlsym(p->m->lib_handle,"cleanup");
         	if ((error = dlerror()) != NULL)
         	{
                 	fprintf(stderr, "%s\n", error);
-                	return -1;
+                	naddycap_exit(-1);
         	}
 		(*(p->m->init))(argv[argc-1]);
 		p->next = NULL;
@@ -110,7 +119,7 @@ int main(int argc, char *argv[])
 	if (trace_is_err(trace))
 	{
 		trace_perror(trace, "Opening trace file");
-		return 1;
+		naddycap_exit(1);
 	}
 
 	if (trace_start(trace) == 0)
@@ -133,7 +142,7 @@ int main(int argc, char *argv[])
 void naddycap_exit(int sig)
 {
 	naddycap_cleanup(env.packet, trace, m);
-	exit(0);
+	exit(sig);
 }
 
 void naddycap_cleanup(libtrace_packet_t *packet, libtrace_t *trace, module m)
