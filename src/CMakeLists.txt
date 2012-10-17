@@ -4,7 +4,7 @@ PROJECT( naddycap )
 
 INCLUDE_DIRECTORIES( $(naddycap_SOURCE_DIR)/includes )
 
-SET ( naddycap_SRCS main.cpp event.cpp pipeline.cpp argparser.cpp includes/naddycap.h )
+SET ( naddycap_SRCS main.c event.c pipeline.c argparser.c includes/naddycap.h )
 ADD_EXECUTABLE ( naddycap ${naddycap_SRCS} )
 TARGET_LINK_LIBRARIES (naddycap dl trace wandevent argtable2)
 

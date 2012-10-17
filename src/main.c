@@ -11,7 +11,7 @@ process_path *path_head, *path_curr;
 wand_event_handler_t *ev_hdl;
 mon_env_t env;
 
-void* process_path_memory;
+unsigned char* process_path_memory;
 
 
 int main(int argc, char *argv[])
@@ -55,15 +55,17 @@ int main(int argc, char *argv[])
 	sprintf(trace_file, "pcapint:%s",args.interface->sval[0]);
 
 	int i;
-	process_path_memory = malloc((sizeof(process_path)+sizeof(module))*args.modules->count);
+	process_path_memory = (unsigned char*)malloc((sizeof(process_path)+sizeof(module))*args.modules->count);
 
 	int index = 0;
 	for(i = 0; i < args.modules->count; i++)
 	{
-		process_path *p = (process_path *)process_path_memory+index;
-		index += sizeof(process_path);   //malloc(sizeof(process_path));
-		p->m = (module *)process_path_memory+index
-		index += sizeof(module);  //malloc(sizeof(module));
+		process_path *p = (process_path *)(process_path_memory+index);
+		index += sizeof(process_path);
+		//process_path *p = (process_path *)malloc(sizeof(process_path));
+		p->m = (module *)(process_path_memory+index);
+		index += sizeof(module);
+		//p->m = (module *)malloc(sizeof(module));
 		printf("Loading %s\n", args.modules->sval[i]);
 		char module_path_name[256];
 		sprintf(module_path_name, "%s%s", args.module_path->sval[0], args.modules->sval[i]);
@@ -167,12 +169,11 @@ void naddycap_cleanup(libtrace_packet_t *packet, libtrace_t *trace, module m)
 	free(args.interface);
 	free(args.module_path);
 	free(args.num_packets);
+	free(args.output_file);
 	free(args.end);
 
-	free(process_path_memory);
-
-	/*path_curr = path_head;
-	process_path *p2free;
+	path_curr = path_head;
+	//process_path *p2free;
 	while(path_curr != NULL)
 	{
 		if(path_curr->m->lib_handle)
@@ -180,9 +181,10 @@ void naddycap_cleanup(libtrace_packet_t *packet, libtrace_t *trace, module m)
 			(*(path_curr->m->cleanup))();
 			dlclose(path_curr->m->lib_handle);
 		}
-		free(path_curr->m);
-		p2free = path_curr;
+		//free(path_curr->m);
+		//p2free = path_curr;
 		path_curr = path_curr->next;
-		free(p2free);
-	}*/
+		//free(p2free);
+	}
+	free(process_path_memory);
 }
