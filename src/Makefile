@@ -1,4 +1,4 @@
-all: naddycap output_erf output_pcap process_dropall
+all: naddycap output_erf output_pcap process_dropall process_bpf
 
 naddycap: main.o argparser.o pipeline.o event.o
 	g++ -rdynamic -o naddycap main.o pipeline.o argparser.o event.o -ldl -ltrace -largtable2 -lwandevent
@@ -26,6 +26,10 @@ output_pcap: output_pcap.c
 process_dropall: process_dropall.c
 	gcc -Wall -fPIC -c process_dropall.c
 	gcc -shared -Wl,-soname,process_dropall.so -o process_dropall.so process_dropall.o
+
+process_bpf: process_bpf.c
+	gcc -Wall -fPIC -c process_bpf.c
+	gcc -shared -Wl,-soname,process_bpf.so -o process_bpf.so process_bpf.o
 
 clean:
 	rm -rf *o
