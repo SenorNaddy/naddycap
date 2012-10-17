@@ -171,7 +171,8 @@ void naddycap_cleanup(libtrace_packet_t *packet, libtrace_t *trace, module m)
 	free(args.num_packets);
 	free(args.output_file);
 	free(args.end);
-
+	if(config)
+		config_destroy(config);
 	path_curr = path_head;
 	//process_path *p2free;
 	while(path_curr != NULL)
