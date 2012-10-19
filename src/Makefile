@@ -3,16 +3,16 @@ all: naddycap output_erf output_pcap process_dropall process_bpf
 naddycap: main.o argparser.o pipeline.o event.o
 	g++ -rdynamic -o naddycap main.o pipeline.o argparser.o event.o -ldl -ltrace -largtable2 -lwandevent
 
-argparser.o: argparser.c naddycap.h args.h
+argparser.o: argparser.c includes/naddycap.h includes/args.h
 	g++ -c -Wall -g argparser.c
 
-event.o: event.c naddycap.h
+event.o: event.c includes/naddycap.h
 	g++ -c -Wall -g event.c
 
-pipeline.o: pipeline.cpp naddycap.h
+pipeline.o: pipeline.cpp includes/naddycap.h
 	g++ -c -Wall -g pipeline.cpp
 
-main.o:	main.cpp naddycap.h args.h structs.h event.h
+main.o:	main.cpp includes/naddycap.h includes/args.h includes/structs.h includes/event.h
 	g++ -c -Wall -g main.cpp
 
 output_erf: output_erf.c
