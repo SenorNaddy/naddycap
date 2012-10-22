@@ -4,11 +4,11 @@
 
 libtrace_filter_t *filter;
 
-void init(char *args)
+void init(config_setting_t *setting)
 {
-	char tmp[256] = "";
-	sprintf(tmp, "icmp");
-	filter = trace_create_filter(tmp);
+	const char *filter_str;
+	config_setting_lookup_string(setting, "filter", &filter_str);
+	filter = trace_create_filter(filter_str);
 }
 enum packetret parse_packet(libtrace_packet_t *pkt)
 {

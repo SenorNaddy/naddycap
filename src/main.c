@@ -25,7 +25,7 @@ int main(int argc, char *argv[])
 	char *error;
 
 	initialize_clargs(&args);
-	void *argtable[] = {args.help, args.version, args.modules, args.interface, args.module_path, args.num_packets, args.output_file, args.end};
+	void *argtable[] = {args.help, args.version, args.modules, args.interface, args.module_path, args.num_packets, args.config_file, args.end};
 
 	int nerrors;
 	if(arg_nullcheck(argtable) != 0)
@@ -54,6 +54,8 @@ int main(int argc, char *argv[])
 
 	sprintf(trace_file, "pcapint:%s",args.interface->sval[0]);
 
+	parse_config(args.config_file->filename[0]);
+
 	int i;
 	process_path_memory = (unsigned char*)malloc((sizeof(process_path)+sizeof(module))*args.modules->count);
 
@@ -68,7 +70,7 @@ int main(int argc, char *argv[])
 		//p->m = (module *)malloc(sizeof(module));
 		printf("Loading %s\n", args.modules->sval[i]);
 		char module_path_name[256];
-		sprintf(module_path_name, "%s%s", args.module_path->sval[0], args.modules->sval[i]);
+		sprintf(module_path_name, "%slib%s.so", args.module_path->sval[0], args.modules->sval[i]);
 		p->m->lib_handle = dlopen(module_path_name, RTLD_LAZY);
 		if(!p->m->lib_handle)
 		{
@@ -96,7 +98,12 @@ int main(int argc, char *argv[])
                 	fprintf(stderr, "%s\n", error);
                 	naddycap_exit(-1);
         	}
-		(*(p->m->init))(argv[argc-1]);
+
+		char config_path[256];
+		sprintf(config_path,"naddycap.modules.%s",args.modules->sval[i]);
+		config_setting_t *setting = config_lookup(&config, config_path); 
+
+		(*(p->m->init))(setting);
 		p->next = NULL;
 		if(i == 0)
 		{
@@ -169,10 +176,10 @@ void naddycap_cleanup(libtrace_packet_t *packet, libtrace_t *trace, module m)
 	free(args.interface);
 	free(args.module_path);
 	free(args.num_packets);
-	free(args.output_file);
+	free(args.config_file);
 	free(args.end);
-	if(config)
-		config_destroy(config);
+	if(&config)
+		config_destroy(&config);
 	path_curr = path_head;
 	//process_path *p2free;
 	while(path_curr != NULL)

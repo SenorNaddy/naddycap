@@ -1,4 +1,4 @@
-typedef void (*InitFunc)(char *);
+typedef void (*InitFunc)(config_setting_t *);
 typedef enum packetret (*ParseFunc)(libtrace_packet_t *);
 typedef void (*CleanupFunc)();
 

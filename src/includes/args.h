@@ -8,7 +8,7 @@ typedef struct arguments {
 	struct arg_str *interface;
 	struct arg_int *num_packets;
 	struct arg_str *module_path;
-	struct arg_file *output_file;
+	struct arg_file *config_file;
 	struct arg_end *end;
 } arguments;
 

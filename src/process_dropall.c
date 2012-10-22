@@ -3,7 +3,7 @@
 #include "includes/plugin.h"
 
 
-void init(char *args)
+void init(config_setting_t *setting)
 {
 }
 enum packetret parse_packet(libtrace_packet_t *pkt)

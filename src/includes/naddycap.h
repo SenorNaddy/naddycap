@@ -18,8 +18,8 @@
 int execute_pipeline(libtrace_packet_t *pkt);
 void naddycap_cleanup(libtrace_packet_t *packet, libtrace_t *trace, module m);
 void naddycap_exit(int sig);
-void parse_config(char *config_file);
+void parse_config(const char *config_file);
 
 extern process_path *path_head, *path_curr;
-extern config_t *config;
+extern config_t config;
 #endif

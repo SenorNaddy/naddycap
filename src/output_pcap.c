@@ -4,10 +4,12 @@
 
 libtrace_out_t *output;
 
-void init(char *args)
+void init(config_setting_t *setting)
 {
+	const char *str;
+	config_setting_lookup_string(setting, "filename", &str);
 	char file[256];
-	sprintf(file, "pcapfile:%s",args);
+	sprintf(file, "pcapfile:%s",str);
 	output = trace_create_output(file);
 	trace_start_output(output);
 }
