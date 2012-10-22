@@ -56,6 +56,14 @@ int main(int argc, char *argv[])
 
 	parse_config(args.config_file->filename[0]);
 
+	trace = trace_create(trace_file);
+
+	if(trace_is_err(trace))
+	{
+		trace_perror(trace, "Error creating trace");
+		naddycap_exit(1);
+	}
+
 	int i;
 	process_path_memory = (unsigned char*)malloc((sizeof(process_path)+sizeof(module))*args.modules->count);
 
@@ -102,7 +110,6 @@ int main(int argc, char *argv[])
 		char config_path[256];
 		sprintf(config_path,"naddycap.modules.%s",args.modules->sval[i]);
 		config_setting_t *setting = config_lookup(&config, config_path); 
-
 		(*(p->m->init))(setting);
 		p->next = NULL;
 		if(i == 0)
@@ -130,14 +137,6 @@ int main(int argc, char *argv[])
 
 
 	//packet = trace_create_packet();
-
-	trace = trace_create(trace_file);
-
-	if (trace_is_err(trace))
-	{
-		trace_perror(trace, "Opening trace file");
-		naddycap_exit(1);
-	}
 
 	if (trace_start(trace) == 0)
 	{
