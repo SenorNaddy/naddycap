@@ -7,18 +7,57 @@ int simple_remove;
 int enc_source;
 int enc_dest;
 int prefix_replace;
-const char *prefix_replacement4;
-const char *prefix_replacement6;
+int prefix_preserve;
+uint32_t prefix4;
+uint32_t netmask4;
+uint8_t netmask6[4];
+uint8_t prefix6[16];
+
+uint32_t masks[33] = {
+	0x00000000, 0x80000000, 0xc0000000, 0xe0000000, 0xf0000000,
+	0xf8000000, 0xfc000000, 0xfe000000, 0xff000000, 0xff800000,
+	0xffc00000, 0xffe00000, 0xfff00000, 0xfff80000, 0xfffc0000,
+	0xfffe0000, 0xffff0000, 0xffff8000, 0xffffc000, 0xffffe000,
+	0xfffff000, 0xfffff800, 0xfffffc00, 0xfffffe00, 0xffffff00,
+	0xffffff80, 0xffffffc0, 0xffffffe0, 0xfffffff0, 0xfffffff8,
+	0xfffffffc, 0xfffffffe, 0xffffffff,
+};
 
 void init(config_setting_t *setting)
 {
+	const char *prefix_replacement6;
+	const char *prefix_replacement4;
 	if(!setting) { fprintf(stderr, "Setting is null"); return; }
 	if(!config_setting_lookup_bool(setting, "remove", &simple_remove)) simple_remove = false;
 	if(!config_setting_lookup_bool(setting, "enc_source", &enc_source)) enc_source = false;
 	if(!config_setting_lookup_bool(setting, "enc_dest", &enc_dest)) enc_dest = false;
 	if(!config_setting_lookup_bool(setting, "prefix_replace", &prefix_replace)) prefix_replace = false;;
-	if(!config_setting_lookup_string(setting, "prefix_replacement4", &prefix_replacement4));
-	if(!config_setting_lookup_string(setting, "prefix_replacement6", &prefix_replacement6));
+	if(!config_setting_lookup_bool(setting, "prefix_preserve", &prefix_preserve)) prefix_preserve = false;
+	if(config_setting_lookup_string(setting, "prefix_replacement4", &prefix_replacement4))
+	{
+		int a,b,c,d,bits;
+		sscanf(prefix_replacement4,"%i.%i.%i.%i/%i",
+			&a, &b, &c, &d, &bits);
+		prefix4 = (a<<24)+(b<<16)+(c<<8)+d;
+		netmask4 = masks[bits];
+	}
+	if(config_setting_lookup_string(setting, "prefix_replacement6", &prefix_replacement6))
+	{
+		char tmp_address[42];
+		int bits;
+		sscanf(prefix_replacement6, "%s/%i",tmp_address, &bits);
+		struct in6_addr tmp_addr;
+		printf("%s\n", tmp_address);
+		/*inet_pton(AF_INET6, tmp_address, &tmp_addr);
+		memcpy(&prefix6, &(tmp_addr.s6_addr), sizeof(prefix6));
+		int i;
+		for(i = 0; i < 4; i++)
+		{
+			if(bits > 32) netmask6[i] = masks[32];
+			else netmask6[i] = masks[bits];
+			bits = bits - 32;
+		}*/
+	}
 }
 
 static void update_in_cksum(uint16_t *csum, uint16_t old, uint16_t new)
@@ -42,6 +81,14 @@ uint32_t enc_ip4(uint32_t old_ip)
 	{
 		return 0;
 	}
+	if(prefix_preserve)
+	{
+		return ((prefix4 & old_ip) & netmask4) | (old_ip & ~netmask4);
+	}
+	if(prefix_replace)
+	{
+		return (prefix4 & netmask4) | (old_ip & ~netmask4);
+	}
 }
 
 void enc_ip6(uint8_t old_ip[], void **new_ip)
@@ -49,6 +96,37 @@ void enc_ip6(uint8_t old_ip[], void **new_ip)
 	if(simple_remove)
 	{
 		uint8_t tmp_new_ip[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+		memcpy(new_ip, tmp_new_ip, sizeof(tmp_new_ip));
+	}
+	if(prefix_replace)
+	{
+		uint8_t tmp_new_ip[16];
+		int i,k,m;
+		uint8_t tmp_netmask;
+		m = 0;
+		for(i = 0; i < 4; i++)
+		{
+			for(k = 0; k < 4; k++)
+			{
+				switch(k)
+				{
+					case 0:
+						tmp_netmask = (netmask6[i] >> 24) & 0xF;
+						break;
+					case 1:
+						tmp_netmask = (netmask6[i] >> 16) & 0xF;
+						break;
+					case 2:
+						tmp_netmask = (netmask6[i] >> 8) & 0xF;
+						break;
+					case 3:
+						tmp_netmask = netmask6[i] & 0xF;
+						break;
+				}
+				tmp_new_ip[m] =  (prefix6[m] & tmp_netmask) | (old_ip[m] & ~tmp_netmask);
+				m++;
+			}
+		}
 		memcpy(new_ip, tmp_new_ip, sizeof(tmp_new_ip));
 	}
 }
@@ -59,14 +137,42 @@ void replace_ip6(struct libtrace_ip6 *ip6, libtrace_packet_t *p, int enc_src, in
 	struct libtrace_tcp *tcp;
 	struct libtrace_udp *udp;
 	struct libtrace_icmp *icmp;
-
-	tcp = trace_get_tcp(p);
-	udp = trace_get_udp(p);
-	icmp = trace_get_icmp(p);
+	void *payload;
+	tcp = NULL;
+	udp = NULL;
+	icmp = NULL;
+	uint32_t remaining;
+	uint16_t proto;
+	uint8_t payload_proto;
+	if(p)
+	{
+		trace_get_layer3(p, &proto, &remaining);
+		if(proto != TRACE_ETHERTYPE_IPV6 || remaining <= 0) return; //we should never execute this
+		void *tmp;
+		tmp = trace_get_payload_from_ip6(ip6, &payload_proto, &remaining); 
+		if(remaining <= 0) return;
+		switch (payload_proto)
+		{
+			case TRACE_IPPROTO_ICMPV6:
+				icmp = (struct libtrace_icmp *)tmp;
+				break;
+			case TRACE_IPPROTO_UDP:
+				udp = (struct libtrace_udp *)tmp;
+				break;
+			case TRACE_IPPROTO_TCP:
+				tcp = (struct libtrace_tcp *)tmp;
+				break;
+		}
+	}
 
 	int i;
 	uint8_t new_src_ip[] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 	enc_ip6(ip6->ip_src.s6_addr,(void*)&new_src_ip);
+/*	printf("%i:%i:%i:%i:%i:%i:%i:%i:%i:%i:%i:%i:%i:%i:%i:%i\n",
+		new_src_ip[0], new_src_ip[1], new_src_ip[2], new_src_ip[3],
+		new_src_ip[4], new_src_ip[5], new_src_ip[6], new_src_ip[7],
+		new_src_ip[8], new_src_ip[9], new_src_ip[10], new_src_ip[11],
+		new_src_ip[12], new_src_ip[13], new_src_ip[14], new_src_ip[15]);*/
 	uint8_t new_dst_ip[] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 	enc_ip6(ip6->ip_dst.s6_addr,(void*)&new_dst_ip);
 	for(i = 0; i < 16; i++)
@@ -130,7 +236,7 @@ void replace_ip4(struct libtrace_ip *ip, int enc_src, int enc_dst)
 		tmp = tmp + sizeof(struct libtrace_icmp);
 		if(icmp->type == 3 || icmp->type == 5 || icmp->type == 11)
 		{
-			replace_ip((struct libtrace_ip *)tmp, enc_dst, enc_src);
+			replace_ip4((struct libtrace_ip *)tmp, enc_dst, enc_src);
 		}
 	}
 
@@ -144,9 +250,7 @@ enum packetret parse_packet(libtrace_packet_t *pkt)
 	struct libtrace_ip6 *ip6;
 	ip6 = trace_get_ip6(pkt);
 
-	if(!ip) return ACCEPTED;
-
-	if(ip) replace_ip(ip, enc_source, enc_dest);
+	if(ip) replace_ip4(ip, enc_source, enc_dest);
 	if(ip6) replace_ip6(ip6, pkt, enc_source, enc_dest);
 	return ACCEPTED;
 }
