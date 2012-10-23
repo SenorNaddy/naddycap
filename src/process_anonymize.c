@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include "includes/plugin.h"
 #include <string.h>
+#include <arpa/inet.h>
 
 int simple_remove;
 int enc_source;
@@ -10,7 +11,7 @@ int prefix_replace;
 int prefix_preserve;
 uint32_t prefix4;
 uint32_t netmask4;
-uint8_t netmask6[4];
+uint32_t netmask6[4];
 uint8_t prefix6[16];
 
 uint32_t masks[33] = {
@@ -43,20 +44,25 @@ void init(config_setting_t *setting)
 	}
 	if(config_setting_lookup_string(setting, "prefix_replacement6", &prefix_replacement6))
 	{
-		char tmp_address[42];
+		char tmp_address[INET6_ADDRSTRLEN];
 		int bits;
-		sscanf(prefix_replacement6, "%s/%i",tmp_address, &bits);
+		sscanf(prefix_replacement6, "%[0-9a-fA-F:]/%i",tmp_address, &bits);
+
 		struct in6_addr tmp_addr;
-		printf("%s\n", tmp_address);
-		/*inet_pton(AF_INET6, tmp_address, &tmp_addr);
-		memcpy(&prefix6, &(tmp_addr.s6_addr), sizeof(prefix6));
+		inet_pton(AF_INET6, tmp_address, &tmp_addr);
+
+		char address[INET6_ADDRSTRLEN];
+		inet_ntop(AF_INET6, &tmp_addr, address, INET6_ADDRSTRLEN);
+		memcpy(prefix6, tmp_addr.s6_addr, sizeof(prefix6));
+
 		int i;
 		for(i = 0; i < 4; i++)
 		{
+			if(bits < 0) bits = 0;
 			if(bits > 32) netmask6[i] = masks[32];
 			else netmask6[i] = masks[bits];
 			bits = bits - 32;
-		}*/
+		}
 	}
 }
 
@@ -98,7 +104,7 @@ void enc_ip6(uint8_t old_ip[], void **new_ip)
 		uint8_t tmp_new_ip[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 		memcpy(new_ip, tmp_new_ip, sizeof(tmp_new_ip));
 	}
-	if(prefix_replace)
+	if(prefix_replace || prefix_preserve)
 	{
 		uint8_t tmp_new_ip[16];
 		int i,k,m;
@@ -111,19 +117,20 @@ void enc_ip6(uint8_t old_ip[], void **new_ip)
 				switch(k)
 				{
 					case 0:
-						tmp_netmask = (netmask6[i] >> 24) & 0xF;
+						tmp_netmask = (netmask6[i] >> 24) & 0xFF;
 						break;
 					case 1:
-						tmp_netmask = (netmask6[i] >> 16) & 0xF;
+						tmp_netmask = (netmask6[i] >> 16) & 0xFF;
 						break;
 					case 2:
-						tmp_netmask = (netmask6[i] >> 8) & 0xF;
+						tmp_netmask = (netmask6[i] >> 8) & 0xFF;
 						break;
 					case 3:
-						tmp_netmask = netmask6[i] & 0xF;
+						tmp_netmask = netmask6[i] & 0xFF;
 						break;
 				}
-				tmp_new_ip[m] =  (prefix6[m] & tmp_netmask) | (old_ip[m] & ~tmp_netmask);
+				if(prefix_replace) tmp_new_ip[m] =  (prefix6[m] & tmp_netmask) | (old_ip[m] & ~tmp_netmask);
+				if(prefix_preserve) tmp_new_ip[m] = ((prefix6[m] & old_ip[m]) & tmp_netmask) | (old_ip[m] & ~tmp_netmask);
 				m++;
 			}
 		}
@@ -167,14 +174,14 @@ void replace_ip6(struct libtrace_ip6 *ip6, libtrace_packet_t *p, int enc_src, in
 
 	int i;
 	uint8_t new_src_ip[] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
-	enc_ip6(ip6->ip_src.s6_addr,(void*)&new_src_ip);
+	if(enc_src) enc_ip6(ip6->ip_src.s6_addr,(void*)&new_src_ip);
 /*	printf("%i:%i:%i:%i:%i:%i:%i:%i:%i:%i:%i:%i:%i:%i:%i:%i\n",
 		new_src_ip[0], new_src_ip[1], new_src_ip[2], new_src_ip[3],
 		new_src_ip[4], new_src_ip[5], new_src_ip[6], new_src_ip[7],
 		new_src_ip[8], new_src_ip[9], new_src_ip[10], new_src_ip[11],
 		new_src_ip[12], new_src_ip[13], new_src_ip[14], new_src_ip[15]);*/
 	uint8_t new_dst_ip[] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
-	enc_ip6(ip6->ip_dst.s6_addr,(void*)&new_dst_ip);
+	if(enc_dst) enc_ip6(ip6->ip_dst.s6_addr,(void*)&new_dst_ip);
 	for(i = 0; i < 16; i++)
 	{
 		if(enc_src)
