@@ -13,4 +13,5 @@ ADD_LIBRARY(output_erf SHARED output_erf.c)
 ADD_LIBRARY(output_pcap SHARED output_pcap.c)
 ADD_LIBRARY(process_dropall SHARED process_dropall.c)
 ADD_LIBRARY(process_bpf SHARED process_bpf.c)
-ADD_LIBRARY(process_anonymize SHARED process_anonymize.c)
+
+ADD_SUBDIRECTORY(process_anonymize)
