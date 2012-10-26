@@ -5,6 +5,7 @@ int enc_source;
 int enc_dest;
 int prefix_replace;
 int prefix_preserve;
+int cryptopan;
 uint32_t prefix4;
 uint32_t netmask4;
 uint32_t netmask6[4];
@@ -28,8 +29,9 @@ void init(config_setting_t *setting)
 	if(!config_setting_lookup_bool(setting, "remove", &simple_remove)) simple_remove = false;
 	if(!config_setting_lookup_bool(setting, "enc_source", &enc_source)) enc_source = false;
 	if(!config_setting_lookup_bool(setting, "enc_dest", &enc_dest)) enc_dest = false;
-	if(!config_setting_lookup_bool(setting, "prefix_replace", &prefix_replace)) prefix_replace = false;;
+	if(!config_setting_lookup_bool(setting, "prefix_replace", &prefix_replace)) prefix_replace = false;
 	if(!config_setting_lookup_bool(setting, "prefix_preserve", &prefix_preserve)) prefix_preserve = false;
+	if(!config_setting_lookup_bool(setting, "cryptopan", &cryptopan)) cryptopan = false;
 	if(config_setting_lookup_string(setting, "prefix_replacement4", &prefix_replacement4))
 	{
 		int a,b,c,d,bits;
